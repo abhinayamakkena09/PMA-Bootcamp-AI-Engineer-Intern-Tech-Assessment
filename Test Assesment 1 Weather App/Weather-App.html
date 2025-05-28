@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weather App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+      color: #333;
+    }
+    h1 { text-align: center; }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+    }
+    button {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .weather, .forecast {
+      margin-top: 20px;
+    }
+    .forecast-day {
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 5px 0;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Weather App</h1>
+  <div class="container">
+    <div class="input-group">
+      <input type="text" id="locationInput" placeholder="Enter city name..." />
+      <button onclick="getWeather()">Search</button>
+      <button onclick="getLocation()">Use My Location</button>
+    </div>
+    <div id="error" class="error"></div>
+    <div id="weather" class="weather"></div>
+    <div id="forecast" class="forecast"></div>
+  </div>
+
+  <script>
+    const apiKey = "60f3839c4d12e8e4094c12e7c28a4a7c";
+
+    function displayError(message) {
+      document.getElementById("error").innerText = message;
+      document.getElementById("weather").innerHTML = "";
+      document.getElementById("forecast").innerHTML = "";
+    }
+
+    async function getWeather() {
+      const location = document.getElementById("locationInput").value.trim();
+      if (!location) {
+        displayError("Please enter a valid location.");
+        return;
+      }
+      fetchWeatherData(`q=${location}`);
+    }
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const { latitude, longitude } = pos.coords;
+            fetchWeatherData(`lat=${latitude}&lon=${longitude}`);
+          },
+          err => displayError("Location access denied.")
+        );
+      } else {
+        displayError("Geolocation not supported.");
+      }
+    }
+
+    async function fetchWeatherData(query) {
+      try {
+        const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?${query}&appid=${apiKey}&units=metric`);
+        if (!weatherRes.ok) throw new Error("Weather not found.");
+        const weatherData = await weatherRes.json();
+        showWeather(weatherData);
+
+        const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?${query}&appid=${apiKey}&units=metric`);
+        if (!forecastRes.ok) throw new Error("Forecast not available.");
+        const forecastData = await forecastRes.json();
+        showForecast(forecastData);
+      } catch (err) {
+        displayError(err.message);
+      }
+    }
+
+    function showWeather(data) {
+      document.getElementById("error").innerText = "";
+      const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+      document.getElementById("weather").innerHTML = `
+        <h2>${data.name}, ${data.sys.country}</h2>
+        <p><img src="${iconUrl}" alt="weather icon"/> ${data.weather[0].main} - ${data.weather[0].description}</p>
+        <p>🌡️ Temp: ${data.main.temp}°C</p>
+        <p>💧 Humidity: ${data.main.humidity}%</p>
+        <p>🌬️ Wind: ${data.wind.speed} m/s</p>
+      `;
+    }
+
+    function showForecast(data) {
+      const forecastDiv = document.getElementById("forecast");
+      forecastDiv.innerHTML = "<h3>5-Day Forecast</h3>";
+
+      const forecastByDay = {};
+
+      data.list.forEach(entry => {
+        const date = entry.dt_txt.split(" ")[0];
+        if (!forecastByDay[date]) {
+          forecastByDay[date] = entry;
+        }
+      });
+
+      Object.values(forecastByDay).slice(0, 5).forEach(day => {
+        const iconUrl = `https://openweathermap.org/img/wn/${day.weather[0].icon}@2x.png`;
+        forecastDiv.innerHTML += `
+          <div class="forecast-day">
+            <strong>${day.dt_txt.split(" ")[0]}</strong><br/>
+            <img src="${iconUrl}" alt="weather icon"/>
+            ${day.weather[0].main} - ${day.weather[0].description}<br/>
+            🌡️ Temp: ${day.main.temp}°C
+          </div>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
